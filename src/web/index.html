@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TOTPAL</title>
+
+    <script>
+      let gameId = null;
+      let playerId = null;
+
+      async function fetchAPI(path, options = {}) {
+        const res = await fetch(`/api/${path}`, options);
+        if (!res.ok) {
+          throw new Error(
+            `API request failed: ${res.status} ${res.statusText}`
+          );
+        }
+        return res.json();
+      }
+
+      function setPage(pageId) {
+        document.querySelectorAll(".page").forEach((page) => {
+          page.classList.add("hidden");
+        });
+        document.getElementById(pageId).classList.remove("hidden");
+      }
+
+      async function loop() {
+        try {
+          const data = await fetchAPI(`games/${gameId}?playerId=${playerId}`);
+          const count = data.articles_submitted;
+          document.getElementById("submissionCountOwner").innerText = count;
+          document.getElementById("submissionCountPlayer").innerText = count;
+
+          if (data.selected_article) {
+            setPage("pageSelected");
+            document.getElementById("pageSelected").innerHTML = `
+              <h2>Selected Article:</h2>
+              <h3>${data.selected_article}</h3>
+            `;
+          }
+        } catch (error) {
+          console.error("Error fetching submissions:", error);
+        }
+      }
+
+      async function startGame() {
+        try {
+          const data = await fetchAPI("games", {
+            method: "POST",
+          });
+          gameId = data.id;
+          console.log("Game started:", data);
+          setPage("pageGameOwner");
+          setInterval(loop, 1000);
+          document.getElementById("gameDetails").classList.remove("hidden");
+          document.getElementById("gameCode").innerText = gameId;
+        } catch (error) {
+          console.error("Error starting game:", error);
+        }
+      }
+
+      async function joinGame() {
+        try {
+          const gameCode = prompt("Enter Game Code:").replace(/\s+/g, "");
+          if (!gameCode) return;
+
+          console.log("Joining game with code:", gameCode);
+
+          const data = await fetchAPI(`games/${gameCode}`);
+          gameId = gameCode;
+          playerId = data.player_id;
+          console.log("Joined game:", data);
+          setPage("pageGamePlayer");
+          setInterval(loop, 1000);
+        } catch (error) {
+          console.error("Error joining game:", error);
+        }
+      }
+
+      async function selectArticle() {
+        try {
+          await fetchAPI(`games/${gameId}/articles/pick`);
+          setPage("pageSelected");
+        } catch (error) {
+          console.error("Error selecting article:", error);
+        }
+      }
+
+      async function submitArticle() {
+        try {
+          const input = document.getElementById("submissionInput");
+          const article = input.value.trim();
+          if (!article) return;
+          await fetchAPI(`games/${gameId}/articles?player_id=${playerId}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title: article }),
+          });
+          input.value = "";
+        } catch (error) {
+          console.error("Error submitting article:", error);
+        }
+      }
+    </script>
+
+    <style>
+      :root,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-color: #1e1e1e;
+        color: #fff;
+        width: 100%;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        padding: auto 20px;
+      }
+
+      button {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      input[type="text"] {
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        width: 300px;
+        margin-right: 2px;
+        outline: none;
+      }
+
+      input[type="text"]:active {
+        outline: none;
+      }
+
+      code {
+        background-color: #333;
+        padding: 5px 10px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+
+      .details {
+        margin-top: 20px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="pageHome">
+      <h1>TOTPAL</h1>
+      <button onclick="startGame()">Start Game</button>
+      <button onclick="joinGame()">Join Game</button>
+    </div>
+    <div class="page hidden" id="pageGameOwner">
+      <h2>Submissions: <span id="submissionCountOwner">...</span></h2>
+      <button onclick="selectArticle()">Start Round</button>
+      <div class="hidden details" id="gameDetails">
+        <p>Use the following code for friends to join:</p>
+        <code id="gameCode"></code>
+      </div>
+    </div>
+    <div class="page hidden" id="pageGamePlayer">
+      <h2>Submissions: <span id="submissionCountPlayer">...</span></h2>
+      <div>
+        <input type="text" id="submissionInput" placeholder="Your article..." />
+        <button onclick="submitArticle()">Submit</button>
+      </div>
+    </div>
+    <div class="page hidden" id="pageSelected"></div>
+  </body>
+</html>
