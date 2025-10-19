@@ -1,8 +1,11 @@
 package main
 
 import (
+	"os"
+
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	"github.com/vcokltfre/totpal/src/api"
 )
 
 func init() {
@@ -15,4 +18,8 @@ func init() {
 	logrus.Info("Initialisation complete")
 }
 
-func main() {}
+func main() {
+	if err := api.Start(os.Getenv("API_BIND")); err != nil {
+		logrus.Fatal(err)
+	}
+}
